@@ -21,8 +21,7 @@ import { Toaster } from 'react-hot-toast'
 import useNotifications from './hooks/useNotifications'
 import { SocketProvider } from './context/SocketContext'
 
-export const serverUrl = "http://localhost:8000"
-
+export const serverUrl = import.meta.env.VITE_SERVER_URL
 function App() {
     const { userData } = useSelector(state => state.user)
 
