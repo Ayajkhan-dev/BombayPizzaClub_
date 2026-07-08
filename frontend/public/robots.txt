@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://bombay-pizza-club.vercel.app/sitemap.xml
