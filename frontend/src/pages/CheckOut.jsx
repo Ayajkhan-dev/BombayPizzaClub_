@@ -17,7 +17,7 @@ import 'mapbox-gl/dist/mapbox-gl.css'
 const MAPBOX_TOKEN = import.meta.env.VITE_MAPBOX_TOKEN
 const SHOP_LAT = parseFloat(import.meta.env.VITE_SHOP_LAT)
 const SHOP_LNG = parseFloat(import.meta.env.VITE_SHOP_LNG)
-const DELIVERY_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_RADIUS_KM) || 5
+const DELIVERY_RADIUS_KM = parseFloat(import.meta.env.VITE_DELIVERY_RADIUS_KM) || 3
 
 mapboxgl.accessToken = MAPBOX_TOKEN
 

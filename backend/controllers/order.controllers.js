@@ -103,7 +103,7 @@ export const placeOrder = async (req, res) => {
         // Delivery range check
         const shopLat = parseFloat(process.env.SHOP_LAT)
         const shopLng = parseFloat(process.env.SHOP_LNG)
-        const deliveryRadiusKm = parseFloat(process.env.DELIVERY_RADIUS_KM) || 5
+        const deliveryRadiusKm = parseFloat(process.env.DELIVERY_RADIUS_KM) || 3
 
         if (!isNaN(shopLat) && !isNaN(shopLng)) {
             const userLat = parseFloat(deliveryAddress.latitude)
