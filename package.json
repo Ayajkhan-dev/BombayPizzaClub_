@@ -1,0 +1,6 @@
+{
+  "dependencies": {
+    "firebase-admin": "^14.1.0",
+    "mapbox-gl": "^3.25.0"
+  }
+}
