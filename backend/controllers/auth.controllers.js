@@ -32,10 +32,10 @@ export const signUp = async (req, res) => {
 
         const token = await genToken(user._id)
         res.cookie("token", token, {
-            secure: false,
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: true
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000
         })
 
         return res.status(201).json(user)
@@ -63,10 +63,10 @@ if (!isMatch) {
 
         const token = await genToken(user._id)
         res.cookie("token", token, {
-            secure: false,
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: true
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000
         })
 
         return res.status(200).json(user)
@@ -78,7 +78,11 @@ if (!isMatch) {
 
 export const signOut = async (req, res) => {
     try {
-        res.clearCookie("token")
+        res.clearCookie("token", {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict"
+        })
         return res.status(200).json({ message: "log out successfully" })
     } catch (error) {
         return res.status(500).json(`sign out error ${error}`)
@@ -154,10 +158,10 @@ export const googleAuth = async (req, res) => {
 
         const token = await genToken(user._id)
         res.cookie("token", token, {
-            secure: false,
-            sameSite: "strict",
-            maxAge: 7 * 24 * 60 * 60 * 1000,
-            httpOnly: true
+            httpOnly: true,
+            secure: process.env.NODE_ENV === "production",
+            sameSite: process.env.NODE_ENV === "production" ? "none" : "strict",
+            maxAge: 7 * 24 * 60 * 60 * 1000
         })
 
         return res.status(200).json(user)
