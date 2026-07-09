@@ -3,7 +3,7 @@ importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js
 importScripts("https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js")
 
 firebase.initializeApp({
-    apiKey: "PASTE_YOUR_VITE_FIREBASE_APIKEY_HERE",
+    apiKey: "AIzaSyD9DVlTbgicUy0UWQaxy8KuXAvkqRpXTTA",
     authDomain: "bombaypizza-154bf.firebaseapp.com",
     projectId: "bombaypizza-154bf",
     storageBucket: "bombaypizza-154bf.firebasestorage.app",
