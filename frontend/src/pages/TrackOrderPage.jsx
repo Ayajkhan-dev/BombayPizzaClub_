@@ -7,11 +7,12 @@ import { useState } from 'react'
 import { IoIosArrowRoundBack } from "react-icons/io";
 import DeliveryBoyTracking from '../components/DeliveryBoyTracking'
 import { useSelector } from 'react-redux'
+import { useSocket } from '../context/SocketContext'
 function TrackOrderPage() {
     const { orderId } = useParams()
     const [currentOrder, setCurrentOrder] = useState() 
     const navigate = useNavigate()
-    const {socket}=useSelector(state=>state.user)
+    const socket = useSocket()
     const [liveLocations,setLiveLocations]=useState({})
     const handleGetOrder = async () => {
         try {
@@ -23,12 +24,17 @@ function TrackOrderPage() {
     }
 
     useEffect(()=>{
-socket.on('updateDeliveryLocation',({deliveryBoyId,latitude,longitude})=>{
-setLiveLocations(prev=>({
-  ...prev,
-  [deliveryBoyId]:{lat:latitude,lon:longitude}
-}))
-})
+        if(!socket) return
+        const handleLocationUpdate = ({deliveryBoyId,latitude,longitude}) => {
+            setLiveLocations(prev=>({
+              ...prev,
+              [deliveryBoyId]:{lat:latitude,lon:longitude}
+            }))
+        }
+        socket.on('updateDeliveryLocation', handleLocationUpdate)
+        return () => {
+            socket.off('updateDeliveryLocation', handleLocationUpdate)
+        }
     },[socket])
 
     useEffect(() => {
@@ -56,7 +62,7 @@ setLiveLocations(prev=>({
 </div>:<p className='font-semibold'>Delivery Boy is not assigned yet.</p>}
          </>:<p className='text-green-600 font-semibold text-lg'>Delivered</p>}
 
-{(shopOrder.assignedDeliveryBoy && shopOrder.status !== "delivered") && (
+{(shopOrder.assignedDeliveryBoy && shopOrder.assignedDeliveryBoy.location?.coordinates && shopOrder.status !== "delivered") && (
   <div className="h-[400px] w-full rounded-2xl overflow-hidden shadow-md">
     <DeliveryBoyTracking data={{
       deliveryBoyLocation:liveLocations[shopOrder.assignedDeliveryBoy._id] || {
@@ -64,8 +70,8 @@ setLiveLocations(prev=>({
         lon: shopOrder.assignedDeliveryBoy.location.coordinates[0]
       },
       customerLocation: {
-        lat: currentOrder.deliveryAddress.latitude,
-        lon: currentOrder.deliveryAddress.longitude
+        lat: currentOrder.deliveryAddress?.latitude,
+        lon: currentOrder.deliveryAddress?.longitude
       }
     }} />
   </div>
