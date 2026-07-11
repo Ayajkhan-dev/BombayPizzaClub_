@@ -8,7 +8,7 @@ export const getCurrentUser = async (req, res) => {
         }
         // FIX H1: Sensitive fields response mein nahi aane chahiye
         const user = await User.findById(userId).select(
-            "-password -resetOtp -otpExpires -isOtpVerified -fcmToken -socketId"
+            "-password -resetOtp -otpExpires -isOtpVerified -fcmTokens -socketId"
         )
         if (!user) {
             return res.status(400).json({ message: "user is not found" })
@@ -43,7 +43,14 @@ export const updateFcmToken = async (req, res) => {
         if (!fcmToken) {
             return res.status(400).json({ message: "fcmToken is required" })
         }
-        const user = await User.findByIdAndUpdate(req.userId, { fcmToken }, { new: true })
+        // FIX: $addToSet se token array mein add hota hai (agar already nahi hai),
+        // purane devices ke tokens overwrite/delete nahi hote - isse laptop aur
+        // mobile dono ek saath push notification pa sakte hain.
+        const user = await User.findByIdAndUpdate(
+            req.userId,
+            { $addToSet: { fcmTokens: fcmToken } },
+            { new: true }
+        )
         if (!user) {
             return res.status(400).json({ message: "user is not found" })
         }

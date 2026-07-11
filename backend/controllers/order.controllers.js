@@ -17,7 +17,6 @@ let instance = new RazorPay({
 });
 
 // ===== Order Notification System + FCM helper =====
-// ===== Order Notification System + FCM helper =====
 async function createOrderNotifications(io, order) {
     for (const shopOrder of order.shopOrders) {
         const ownerId = shopOrder.owner?._id || shopOrder.owner
@@ -47,40 +46,47 @@ async function createOrderNotifications(io, order) {
         }
 
         try {
-            const ownerUser = await User.findById(ownerId).select("fcmToken")
-            if (messaging && ownerUser?.fcmToken) {
-                await messaging.send({
-                    token: ownerUser.fcmToken,
-                    // FIX: title/body ab "data" ke andar hain, "notification" field
-                    // mein nahi - warna Firebase khud automatically ek popup dikhata
-                    // hai, aur humara service worker bhi dikhata hai -> 2 notifications
-                    // ban jaati thi same order ke liye. "data" object mein bhejne se
-                    // hum poori tarah control mein rehte hain, sirf ek popup aayega.
-                    data: {
-                        title: "New order received on Bombay Pizza Club",
-                        body: `${notification.customerName} • ₹${notification.orderAmount}`,
-                        orderId: String(order._id),
-                        notificationId: String(notification._id)
-                    },
-                    webpush: {
-                        fcmOptions: { link: "/my-orders" }
+            const ownerUser = await User.findById(ownerId).select("fcmTokens")
+            const tokens = ownerUser?.fcmTokens || []
+            if (messaging && tokens.length > 0) {
+                // FIX: ab owner ke saare devices (laptop + mobile) ko ek saath
+                // push bheja jaata hai, sirf ek device tak simit nahi.
+                const results = await Promise.allSettled(
+                    tokens.map(token =>
+                        messaging.send({
+                            token,
+                            data: {
+                                title: "New order received on Bombay Pizza Club",
+                                body: `${notification.customerName} • ₹${notification.orderAmount}`,
+                                orderId: String(order._id),
+                                notificationId: String(notification._id)
+                            },
+                            webpush: {
+                                fcmOptions: { link: "/my-orders" }
+                            }
+                        })
+                    )
+                )
+
+                const deadTokens = []
+                results.forEach((r, i) => {
+                    if (r.status === "rejected") {
+                        const code = r.reason?.errorInfo?.code || r.reason?.code || ""
+                        if (
+                            code.includes("registration-token-not-registered") ||
+                            code.includes("invalid-argument") ||
+                            code.includes("invalid-registration-token")
+                        ) {
+                            deadTokens.push(tokens[i])
+                        }
                     }
                 })
+                if (deadTokens.length > 0) {
+                    await User.findByIdAndUpdate(ownerId, { $pull: { fcmTokens: { $in: deadTokens } } })
+                }
             }
         } catch (fcmErr) {
             console.log(`fcm push error: ${fcmErr}`)
-            // FIX: agar token invalid/expired/unregistered ho gaya hai (mobile pe
-            // common hai - browser token rotate kar deta hai), to use DB se hata do.
-            // Warna ye hamesha ke liye stuck reh jaata hai aur future ke saare
-            // notifications isi dead token pe silently fail hote rahenge.
-            const code = fcmErr?.errorInfo?.code || fcmErr?.code || ""
-            if (
-                code.includes("registration-token-not-registered") ||
-                code.includes("invalid-argument") ||
-                code.includes("invalid-registration-token")
-            ) {
-                await User.findByIdAndUpdate(ownerId, { $unset: { fcmToken: "" } })
-            }
         }
     }
 }
@@ -240,7 +246,6 @@ export const placeOrder = async (req, res) => {
         return res.status(500).json({ message: "place order error" })
     }
 }
-
 export const verifyPayment = async (req, res) => {
     try {
         const { razorpay_payment_id, razorpay_order_id, razorpay_signature, orderId } = req.body
@@ -442,7 +447,6 @@ export const acceptOrder = async (req, res) => {
         if (alreadyAssigned) {
             return res.status(400).json({ message: "You are already assigned to another order" })
         }
-
         assignment.assignedTo = req.userId
         assignment.status = 'assigned'
         assignment.acceptedAt = new Date()

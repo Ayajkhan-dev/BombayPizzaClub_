@@ -37,11 +37,11 @@ const userSchema = new mongoose.Schema({
      type:String,
      
     },
-    // NEW: Firebase Cloud Messaging - stores the browser's push token so we
-    // can send a notification even when the dashboard tab/browser is closed.
-    fcmToken:{
-        type:String,
-        default:null
+    // FIX: multiple devices (laptop + mobile) ek saath push notification pa sakein
+    // isliye single token ki jagah ab array of tokens store hota hai.
+    fcmTokens:{
+        type:[String],
+        default:[]
     },
     isOnline:{
         type:Boolean,
