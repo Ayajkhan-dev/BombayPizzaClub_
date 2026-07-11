@@ -66,6 +66,17 @@ function useNotifications() {
         }
 
         setupFcm()
+
+        // FIX: mobile pe token kabhi-kabhi background/foreground switch hone par
+        // rotate ho jaata hai. Tab wapas visible hote hi token dobara check/save
+        // karo, taaki DB mein hamesha latest valid token rahe.
+        const handleVisibility = () => {
+            if (document.visibilityState === "visible") {
+                setupFcm()
+            }
+        }
+        document.addEventListener("visibilitychange", handleVisibility)
+        return () => document.removeEventListener("visibilitychange", handleVisibility)
     }, [userData?.role, userData?._id])
 
     useEffect(() => {

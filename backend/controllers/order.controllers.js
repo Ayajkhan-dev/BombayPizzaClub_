@@ -69,6 +69,18 @@ async function createOrderNotifications(io, order) {
             }
         } catch (fcmErr) {
             console.log(`fcm push error: ${fcmErr}`)
+            // FIX: agar token invalid/expired/unregistered ho gaya hai (mobile pe
+            // common hai - browser token rotate kar deta hai), to use DB se hata do.
+            // Warna ye hamesha ke liye stuck reh jaata hai aur future ke saare
+            // notifications isi dead token pe silently fail hote rahenge.
+            const code = fcmErr?.errorInfo?.code || fcmErr?.code || ""
+            if (
+                code.includes("registration-token-not-registered") ||
+                code.includes("invalid-argument") ||
+                code.includes("invalid-registration-token")
+            ) {
+                await User.findByIdAndUpdate(ownerId, { $unset: { fcmToken: "" } })
+            }
         }
     }
 }
@@ -350,72 +362,11 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: "shop order not found" })
         }
 
+        // Delivery boy assignment/broadcast system removed - owner ab directly
+        // status change karta hai, koi automatic delivery boy assignment nahi hoti.
         shopOrder.status = status
-        let deliveryBoysPayload = []
-
-        if (status === "out of delivery" && !shopOrder.assignment) {
-            const { longitude, latitude } = order.deliveryAddress
-            const nearByDeliveryBoys = await User.find({
-                role: "deliveryBoy",
-                location: {
-                    $near: {
-                        $geometry: { type: "Point", coordinates: [Number(longitude), Number(latitude)] },
-                        $maxDistance: 5000
-                    }
-                }
-            })
-
-            const nearByIds = nearByDeliveryBoys.map(b => b._id)
-            const busyIds = await DeliveryAssignment.find({
-                assignedTo: { $in: nearByIds },
-                status: { $nin: ["brodcasted", "completed"] }
-            }).distinct("assignedTo")
-
-            const busyIdSet = new Set(busyIds.map(id => String(id)))
-            const availableBoys = nearByDeliveryBoys.filter(b => !busyIdSet.has(String(b._id)))
-            const candidates = availableBoys.map(b => b._id)
-
-            if (candidates.length === 0) {
-                await order.save()
-                return res.json({ message: "order status updated but there is no available delivery boys" })
-            }
-
-            const deliveryAssignment = await DeliveryAssignment.create({
-                order: order?._id,
-                owner: shopOrder.owner,
-                shopOrderId: shopOrder?._id,
-                brodcastedTo: candidates,
-                status: "brodcasted"
-            })
-
-            shopOrder.assignedDeliveryBoy = deliveryAssignment.assignedTo
-            shopOrder.assignment = deliveryAssignment._id
-            deliveryBoysPayload = availableBoys.map(b => ({
-                id: b._id,
-                fullName: b.fullName,
-                longitude: b.location.coordinates?.[0],
-                latitude: b.location.coordinates?.[1],
-                mobile: b.mobile
-            }))
-
-            await deliveryAssignment.populate('order')
-            await deliveryAssignment.populate('owner', 'fullName')
-            const io = req.app.get('io')
-            if (io) {
-                availableBoys.forEach(boy => {
-                    if (boy.socketId) {
-                        io.to(boy.socketId).emit('newAssignment', {
-                            sentTo: boy._id,
-                            assignmentId: deliveryAssignment._id,
-                            orderId: deliveryAssignment.order._id,
-                            ownerName: deliveryAssignment.owner.fullName,
-                            deliveryAddress: deliveryAssignment.order.deliveryAddress,
-                            items: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId)).shopOrderItems || [],
-                            subtotal: deliveryAssignment.order.shopOrders.find(so => so._id.equals(deliveryAssignment.shopOrderId))?.subtotal
-                        })
-                    }
-                })
-            }
+        if (status === "delivered" && !shopOrder.deliveredAt) {
+            shopOrder.deliveredAt = new Date()
         }
 
         await order.save()
@@ -438,10 +389,7 @@ export const updateOrderStatus = async (req, res) => {
         }
 
         return res.status(200).json({
-            shopOrder: updatedShopOrder,
-            assignedDeliveryBoy: updatedShopOrder?.assignedDeliveryBoy,
-            availableBoys: deliveryBoysPayload,
-            assignment: updatedShopOrder?.assignment?._id
+            shopOrder: updatedShopOrder
         })
     } catch (error) {
         return res.status(500).json({ message: "order status error" })
