@@ -151,13 +151,28 @@ export const placeOrder = async (req, res) => {
                 return res.status(400).json({ message: `Item not found: ${cartItem.name}` })
             }
 
+            // NEW FEATURE: agar item ke paas sizes hain (Pizza) aur cart mein
+            // size bheja gaya hai, to usi size ka price DB se nikalo - kabhi
+            // bhi frontend se aaya price trust nahi karte (security).
+            let finalPrice = dbItem.price
+            let selectedSize = undefined
+            if (dbItem.sizes && dbItem.sizes.length > 0) {
+                const sizeMatch = dbItem.sizes.find(s => s.label === cartItem.size)
+                if (!sizeMatch) {
+                    return res.status(400).json({ message: `Please select a valid size for ${dbItem.name}` })
+                }
+                finalPrice = sizeMatch.price
+                selectedSize = sizeMatch.label
+            }
+
             if (!groupItemsByOwner[ownerId]) groupItemsByOwner[ownerId] = []
             groupItemsByOwner[ownerId].push({
                 id: dbItem._id,
                 name: dbItem.name,
-                price: dbItem.price,
+                price: finalPrice,
                 quantity: qty,
-                owner: ownerId
+                owner: ownerId,
+                size: selectedSize
             })
         }
 
@@ -173,11 +188,12 @@ export const placeOrder = async (req, res) => {
             return {
                 owner: owner._id,
                 subtotal,
-                shopOrderItems: items.map((i) => ({
+               shopOrderItems: items.map((i) => ({
                     item: i.id,
                     price: i.price,
                     quantity: i.quantity,
-                    name: i.name
+                    name: i.name,
+                    size: i.size
                 }))
             }
         }))

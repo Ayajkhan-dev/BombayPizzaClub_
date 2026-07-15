@@ -9,6 +9,12 @@ function FoodCard({ data }) {
     const dispatch = useDispatch()
     const { cartItems } = useSelector(state => state.user)
 
+    // NEW FEATURE: agar item ke paas sizes hain (Pizza), to default Regular select hoga
+    const hasSizes = data.sizes && data.sizes.length > 0
+    const [selectedSize, setSelectedSize] = useState(hasSizes ? data.sizes.find(s => s.label === "Regular") || data.sizes[0] : null)
+
+    const displayPrice = hasSizes ? selectedSize?.price : data.price
+
     const handleIncrease = () => {
         setQuantity(prev => prev + 1)
     }
@@ -22,16 +28,17 @@ function FoodCard({ data }) {
         dispatch(addToCart({
             id: data._id,
             name: data.name,
-            price: data.price,
+            price: displayPrice,
             image: data.image,
             owner: data.owner?._id || data.owner,
             quantity,
-            foodType: data.foodType
+            foodType: data.foodType,
+            size: hasSizes ? selectedSize.label : undefined
         }))
-        toast.success(`${data.name} added to cart!`)
+        toast.success(`${data.name}${hasSizes ? ` (${selectedSize.label})` : ""} added to cart!`)
     }
 
-    const isInCart = cartItems.some(i => i.id === data._id)
+    const isInCart = cartItems.some(i => i.id === data._id && (i.size || null) == (hasSizes ? selectedSize.label : null))
 
     return (
         <div className='w-full rounded-2xl border border-orange-100 bg-white shadow-sm overflow-hidden hover:shadow-xl transition-all duration-300 flex flex-col group'>
@@ -49,12 +56,31 @@ function FoodCard({ data }) {
                 </div>
 
                 <p className='text-[10px] sm:text-xs text-gray-400 mt-2 font-medium uppercase tracking-wider'>{data.category}</p>
+
+                {hasSizes && (
+                    <div className='flex gap-1.5 mt-2'>
+                        {data.sizes.map((s) => (
+                            <button
+                                key={s.label}
+                                type="button"
+                                onClick={() => setSelectedSize(s)}
+                                className={`text-[10px] sm:text-xs px-2 py-1 rounded-full border font-semibold transition ${
+                                    selectedSize?.label === s.label
+                                        ? "bg-[#ff4d2d] text-white border-[#ff4d2d]"
+                                        : "bg-white text-gray-600 border-gray-200 hover:border-orange-300"
+                                }`}
+                            >
+                                {s.label} ({s.inches}")
+                            </button>
+                        ))}
+                    </div>
+                )}
             </div>
 
             <div className='flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2 p-3 sm:p-4 bg-gray-50/50 border-t border-gray-50'>
                 <div className='flex flex-col'>
                     <span className='text-[10px] text-gray-400 font-bold uppercase'>Price</span>
-                    <span className='font-black text-gray-900 text-lg sm:text-xl'>₹{data.price}</span>
+                    <span className='font-black text-gray-900 text-lg sm:text-xl'>₹{displayPrice}</span>
                 </div>
 
                 <div className='flex items-center gap-2'>

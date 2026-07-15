@@ -8,7 +8,12 @@ const shopOrderItemSchema = new mongoose.Schema({
     },
     name:String,
     price:Number,
-    quantity:Number
+    quantity:Number,
+ size:{
+        type:String,
+        enum:["Regular","Medium","Large"],
+        default:undefined
+    }
 }, { timestamps: true })
 
 const shopOrderSchema = new mongoose.Schema({

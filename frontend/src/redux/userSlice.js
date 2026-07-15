@@ -31,7 +31,9 @@ const userSlice = createSlice({
     },
     addToCart: (state, action) => {
       const cartItem = action.payload
-      const existingItem = state.cartItems.find(i => i.id == cartItem.id)
+      // NEW FEATURE: size bhi match karo - taaki same pizza ke alag size
+      // (Regular/Medium/Large) alag cart lines rahein, ek dusre mein merge na hon.
+      const existingItem = state.cartItems.find(i => i.id == cartItem.id && (i.size || null) == (cartItem.size || null))
       if (existingItem) {
         existingItem.quantity += cartItem.quantity
       } else {
@@ -49,8 +51,8 @@ const userSlice = createSlice({
     ,
 
     updateQuantity: (state, action) => {
-      const { id, quantity } = action.payload
-      const item = state.cartItems.find(i => i.id == id)
+      const { id, quantity, size } = action.payload
+      const item = state.cartItems.find(i => i.id == id && (i.size || null) == (size || null))
       if (item) {
         item.quantity = quantity
       }
@@ -58,7 +60,8 @@ const userSlice = createSlice({
     },
 
     removeCartItem: (state, action) => {
-      state.cartItems = state.cartItems.filter(i => i.id !== action.payload)
+      const { id, size } = action.payload
+      state.cartItems = state.cartItems.filter(i => !(i.id === id && (i.size || null) == (size || null)))
       state.totalAmount = state.cartItems.reduce((sum, i) => sum + i.price * i.quantity, 0)
     },
 

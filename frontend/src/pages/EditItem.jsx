@@ -21,6 +21,9 @@ function EditItem() {
     const [category, setCategory] = useState("")
     const [foodType, setFoodType] = useState("")
     const [loading, setLoading] = useState(false)
+    // NEW FEATURE: Pizza ke liye 3 standard sizes ka price
+    const [sizePrices, setSizePrices] = useState({ Regular: "", Medium: "", Large: "" })
+    const isPizza = category === "Pizza"
     const categories = ["Ice Cream",
         "Main Course",
         "Desserts",
@@ -42,13 +45,29 @@ function EditItem() {
 
     const handleSubmit = async (e) => {
         e.preventDefault()
+        if (isPizza) {
+            if (!sizePrices.Regular || !sizePrices.Medium || !sizePrices.Large) {
+                toast.error("Please enter price for all 3 pizza sizes")
+                return
+            }
+        }
         setLoading(true)
         try {
             const formData = new FormData()
             formData.append("name", name)
             formData.append("category", category)
             formData.append("foodType", foodType)
-            formData.append("price", price)
+            if (isPizza) {
+                const sizes = [
+                    { label: "Regular", inches: 7, price: Number(sizePrices.Regular) },
+                    { label: "Medium", inches: 10, price: Number(sizePrices.Medium) },
+                    { label: "Large", inches: 12, price: Number(sizePrices.Large) }
+                ]
+                formData.append("sizes", JSON.stringify(sizes))
+                formData.append("price", sizePrices.Regular)
+            } else {
+                formData.append("price", price)
+            }
             if (backendImage) {
                 formData.append("image", backendImage)
             }
@@ -87,6 +106,11 @@ function EditItem() {
             setCategory(currentItem.category || "")
             setFoodType(currentItem.foodType || "")
             setFrontendImage(currentItem.image || "")
+            if (currentItem.category === "Pizza" && currentItem.sizes?.length) {
+                const prefill = { Regular: "", Medium: "", Large: "" }
+                currentItem.sizes.forEach(s => { prefill[s.label] = s.price })
+                setSizePrices(prefill)
+            }
         }
     }, [currentItem])
 
@@ -121,13 +145,6 @@ function EditItem() {
                         </div>}
                     </div>
                     <div>
-                        <label className='block text-sm font-medium text-gray-700 mb-1'>Price</label>
-                        <input type="number" placeholder='0' className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500'
-                            onChange={(e) => setPrice(e.target.value)}
-                            value={price}
-                        />
-                    </div>
-                    <div>
                         <label className='block text-sm font-medium text-gray-700 mb-1'>Select Category</label>
                         <select className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500'
                             onChange={(e) => setCategory(e.target.value)}
@@ -139,6 +156,34 @@ function EditItem() {
                             ))}
                         </select>
                     </div>
+                    {isPizza ? (
+                        <div>
+                            <label className='block text-sm font-medium text-gray-700 mb-1'>Price by Size</label>
+                            <div className='grid grid-cols-3 gap-2'>
+                                {[
+                                    { key: "Regular", label: "Regular (7\")" },
+                                    { key: "Medium", label: "Medium (10\")" },
+                                    { key: "Large", label: "Large (12\")" }
+                                ].map(({ key, label }) => (
+                                    <div key={key}>
+                                        <label className='block text-xs text-gray-500 mb-1'>{label}</label>
+                                        <input type="number" placeholder='0' className='w-full px-2 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500'
+                                            value={sizePrices[key]}
+                                            onChange={(e) => setSizePrices(prev => ({ ...prev, [key]: e.target.value }))}
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <div>
+                            <label className='block text-sm font-medium text-gray-700 mb-1'>Price</label>
+                            <input type="number" placeholder='0' className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500'
+                                onChange={(e) => setPrice(e.target.value)}
+                                value={price}
+                            />
+                        </div>
+                    )}
                     <div>
                         <label className='block text-sm font-medium text-gray-700 mb-1'>Select Food Type</label>
                         <select className='w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500'

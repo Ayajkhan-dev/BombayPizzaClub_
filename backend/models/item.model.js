@@ -28,6 +28,18 @@ const itemSchema = new mongoose.Schema({
         min: 0,
         required: true
     },
+    // NEW FEATURE: sirf "Pizza" category ke items ke liye optional hai. Jab
+    // present hai, frontend size-selector dikhata hai aur price yahi se aata
+    // hai. Baaki categories ke liye ye field hamesha empty rahega aur upar
+    // wala single `price` field hi pehle jaisa kaam karta rahega.
+    sizes: {
+        type: [{
+            label: { type: String, enum: ["Regular", "Medium", "Large"], required: true },
+            inches: { type: Number, required: true },
+            price: { type: Number, min: 0, required: true }
+        }],
+        default: undefined
+    },
     foodType: {
         type: String,
         enum: ["veg", "non veg"],
@@ -37,7 +49,6 @@ const itemSchema = new mongoose.Schema({
         average: { type: Number, default: 0 },
         count: { type: Number, default: 0 }
     },
-    // FIX M7: Track karo kisne rating di - duplicate ratings prevent
     ratedBy: [{
         type: mongoose.Schema.Types.ObjectId,
         ref: "User"
