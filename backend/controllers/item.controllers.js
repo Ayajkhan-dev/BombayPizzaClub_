@@ -9,13 +9,41 @@ export const addItem = async (req, res) => {
             return res.status(403).json({ message: "Only owners can add items" })
         }
 
-        const { name, category, foodType, price } = req.body
+        const { name, category, foodType, price, sizes } = req.body
         let image;
         if (req.file) {
             image = await uploadOnCloudinary(req.file.path)
         }
+
+        // NEW FEATURE: Pizza ke liye 3 sizes (Regular/Medium/Large) optional
+        // support - baaki categories ke liye ye poori tarah skip ho jaata hai,
+        // koi existing behaviour change nahi hota.
+        let parsedSizes = undefined
+        let finalPrice = price
+        if (category === "Pizza" && sizes) {
+            try {
+                parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes
+            } catch (e) {
+                return res.status(400).json({ message: "invalid sizes format" })
+            }
+            if (!Array.isArray(parsedSizes) || parsedSizes.length !== 3) {
+                return res.status(400).json({ message: "pizza must have exactly 3 sizes" })
+            }
+            for (const s of parsedSizes) {
+                if (!s.label || !s.price || Number(s.price) <= 0) {
+                    return res.status(400).json({ message: "each size needs a valid label and price" })
+                }
+            }
+            // Regular size ka price hi item ka base `price` rehta hai, taaki
+            // baaki poori app (search, category listing, sorting) bina kisi
+            // change ke pehle jaisa hi kaam karti rahe.
+            const regularSize = parsedSizes.find(s => s.label === "Regular")
+            finalPrice = regularSize ? regularSize.price : parsedSizes[0].price
+        }
+
         const item = await Item.create({
-            name, category, foodType, price, image, owner: req.userId
+            name, category, foodType, price: finalPrice, image, owner: req.userId,
+            ...(parsedSizes ? { sizes: parsedSizes } : {})
         })
         return res.status(201).json({ item, message: "Item saved successfully." })
     } catch (error) {
@@ -26,7 +54,7 @@ export const addItem = async (req, res) => {
 export const editItem = async (req, res) => {
     try {
         const itemId = req.params.itemId
-        const { name, category, foodType, price } = req.body
+        const { name, category, foodType, price, sizes } = req.body
 
         const item = await Item.findOne({ _id: itemId, owner: req.userId })
         if (!item) {
@@ -37,8 +65,41 @@ export const editItem = async (req, res) => {
         if (req.file) {
             image = await uploadOnCloudinary(req.file.path)
         }
-        const updateData = { name, category, foodType, price }
-        if (image) updateData.image = image
+
+        // NEW FEATURE: same Pizza sizes handling as addItem
+        let parsedSizes = undefined
+        let finalPrice = price
+        if (category === "Pizza" && sizes) {
+            try {
+                parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes
+            } catch (e) {
+                return res.status(400).json({ message: "invalid sizes format" })
+            }
+            if (!Array.isArray(parsedSizes) || parsedSizes.length !== 3) {
+                return res.status(400).json({ message: "pizza must have exactly 3 sizes" })
+            }
+            for (const s of parsedSizes) {
+                if (!s.label || !s.price || Number(s.price) <= 0) {
+                    return res.status(400).json({ message: "each size needs a valid label and price" })
+                }
+            }
+            const regularSize = parsedSizes.find(s => s.label === "Regular")
+            finalPrice = regularSize ? regularSize.price : parsedSizes[0].price
+        }
+
+        const setData = { name, category, foodType, price: finalPrice }
+        if (image) setData.image = image
+        let updateData
+        if (parsedSizes) {
+            setData.sizes = parsedSizes
+            updateData = { $set: setData }
+        } else if (category && category !== "Pizza") {
+            // Agar category Pizza se hatakar kuch aur select ki gayi hai,
+            // to purani sizes hata do taaki stale data na reh jaaye.
+            updateData = { $set: setData, $unset: { sizes: 1 } }
+        } else {
+            updateData = setData
+        }
 
         const updatedItem = await Item.findByIdAndUpdate(itemId, updateData, { new: true })
         return res.status(200).json({ item: updatedItem, message: "Item updated successfully." })
@@ -140,104 +201,5 @@ export const rating = async (req, res) => {
         return res.status(200).json({ rating: item.rating })
     } catch (error) {
         return res.status(500).json({ message: "rating error" })
-    }
-}
-export const addItem = async (req, res) => {
-    try {
-        const user = await User.findById(req.userId).select("role")
-        if (!user || user.role !== "owner") {
-            return res.status(403).json({ message: "Only owners can add items" })
-        }
-
-        const { name, category, foodType, price, sizes } = req.body
-        let image;
-        if (req.file) {
-            image = await uploadOnCloudinary(req.file.path)
-        }
-
-        // NEW FEATURE: Pizza ke liye 3 sizes (Regular/Medium/Large) optional
-        // support - baaki categories ke liye ye poori tarah skip ho jaata hai,
-        // koi existing behaviour change nahi hota.
-        let parsedSizes = undefined
-        let finalPrice = price
-        if (category === "Pizza" && sizes) {
-            try {
-                parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes
-            } catch (e) {
-                return res.status(400).json({ message: "invalid sizes format" })
-            }
-            if (!Array.isArray(parsedSizes) || parsedSizes.length !== 3) {
-                return res.status(400).json({ message: "pizza must have exactly 3 sizes" })
-            }
-            for (const s of parsedSizes) {
-                if (!s.label || !s.price || Number(s.price) <= 0) {
-                    return res.status(400).json({ message: "each size needs a valid label and price" })
-                }
-            }
-            const regularSize = parsedSizes.find(s => s.label === "Regular")
-            finalPrice = regularSize ? regularSize.price : parsedSizes[0].price
-        }
-
-        const item = await Item.create({
-            name, category, foodType, price: finalPrice, image, owner: req.userId,
-            ...(parsedSizes ? { sizes: parsedSizes } : {})
-        })
-        return res.status(201).json({ item, message: "Item saved successfully." })
-    } catch (error) {
-        return res.status(500).json({ message: "add item error" })
-    }
-}
-
-export const editItem = async (req, res) => {
-    try {
-        const itemId = req.params.itemId
-        const { name, category, foodType, price, sizes } = req.body
-
-        const item = await Item.findOne({ _id: itemId, owner: req.userId })
-        if (!item) {
-            return res.status(403).json({ message: "Item not found or unauthorized" })
-        }
-
-        let image;
-        if (req.file) {
-            image = await uploadOnCloudinary(req.file.path)
-        }
-
-        let parsedSizes = undefined
-        let finalPrice = price
-        if (category === "Pizza" && sizes) {
-            try {
-                parsedSizes = typeof sizes === "string" ? JSON.parse(sizes) : sizes
-            } catch (e) {
-                return res.status(400).json({ message: "invalid sizes format" })
-            }
-            if (!Array.isArray(parsedSizes) || parsedSizes.length !== 3) {
-                return res.status(400).json({ message: "pizza must have exactly 3 sizes" })
-            }
-            for (const s of parsedSizes) {
-                if (!s.label || !s.price || Number(s.price) <= 0) {
-                    return res.status(400).json({ message: "each size needs a valid label and price" })
-                }
-            }
-            const regularSize = parsedSizes.find(s => s.label === "Regular")
-            finalPrice = regularSize ? regularSize.price : parsedSizes[0].price
-        }
-
-        const setData = { name, category, foodType, price: finalPrice }
-        if (image) setData.image = image
-        let updateData
-        if (parsedSizes) {
-            setData.sizes = parsedSizes
-            updateData = { $set: setData }
-        } else if (category && category !== "Pizza") {
-            updateData = { $set: setData, $unset: { sizes: 1 } }
-        } else {
-            updateData = setData
-        }
-
-        const updatedItem = await Item.findByIdAndUpdate(itemId, updateData, { new: true })
-        return res.status(200).json({ item: updatedItem, message: "Item updated successfully." })
-    } catch (error) {
-        return res.status(500).json({ message: "edit item error" })
     }
 }
