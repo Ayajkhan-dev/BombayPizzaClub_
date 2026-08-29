@@ -9,7 +9,7 @@ const shopOrderItemSchema = new mongoose.Schema({
     name:String,
     price:Number,
     quantity:Number,
- size:{
+size:{
         type:String,
         enum:["Regular","Medium","Large"],
         default:undefined
@@ -25,7 +25,7 @@ const shopOrderSchema = new mongoose.Schema({
     shopOrderItems: [shopOrderItemSchema],
     status:{
         type:String,
-        enum:["pending","preparing","out of delivery","delivered"],
+        enum:["pending","preparing","out of delivery","delivered","rejected"],
         default:"pending"
     },
   assignment:{

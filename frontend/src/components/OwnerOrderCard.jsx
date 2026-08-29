@@ -13,19 +13,31 @@ function OwnerOrderCard({ data }) {
 
     const handleUpdateStatus = async (orderId, ownerId, status) => {
         if (!status) return
+
+        // Reject Order feature: confirmation dialog before rejecting,
+        // same window.confirm pattern jo OwnerItemCard.jsx me delete ke liye use hota hai
+        if (status === "rejected") {
+            const confirmed = window.confirm("Are you sure you want to reject this order?")
+            if (!confirmed) return
+        }
+
         setLoading(true)
         try {
             const result = await axios.post(`${serverUrl}/api/order/update-status/${orderId}/${ownerId}`, { status }, { withCredentials: true })
             dispatch(updateOrderStatus({ orderId, ownerId, status }))
             setAvailableBoys(result.data.availableBoys || [])
-            toast.success(`Status updated to ${status}`)
+            toast.success(status === "rejected" ? "Order rejected" : `Status updated to ${status}`)
         } catch (error) {
             console.log(error)
-            toast.error("Error updating status")
+            toast.error(error?.response?.data?.message || "Error updating status")
         } finally {
             setLoading(false)
         }
     }
+
+    // Reject sirf tab tak allowed hai jab tak order "out of delivery" ya
+    // "delivered" ya already "rejected" na ho ho (backend bhi yahi check karta hai)
+    const canReject = ["pending", "preparing"].includes(data.shopOrders.status)
 
     return (
         <div className='bg-white rounded-2xl shadow-lg p-4 sm:p-6 border border-orange-50 space-y-5 hover:shadow-xl transition-all duration-300'>
@@ -72,7 +84,7 @@ function OwnerOrderCard({ data }) {
                 <div className='flex flex-wrap items-center gap-3'>
                     <div className='flex flex-col'>
                         <span className='text-[10px] text-gray-400 font-black uppercase'>Current Status</span>
-                        <span className='text-sm font-black text-[#ff4d2d] uppercase tracking-wide'>{data.shopOrders.status}</span>
+                        <span className={`text-sm font-black uppercase tracking-wide ${data.shopOrders.status === "rejected" ? "text-red-600" : "text-[#ff4d2d]"}`}>{data.shopOrders.status}</span>
                     </div>
                     
                     <select 
@@ -85,6 +97,7 @@ function OwnerOrderCard({ data }) {
                         <option value="pending">Pending</option>
                         <option value="preparing">Preparing</option>
                         <option value="out of delivery">Out Of Delivery</option>
+                        {canReject && <option value="rejected">Reject Order</option>}
                     </select>
                 </div>
                 
@@ -120,6 +133,15 @@ function OwnerOrderCard({ data }) {
                             )}
                         </div>
                     )}
+                </div>
+            )}
+
+            {data.shopOrders.status === "rejected" && (
+                <div className="p-4 bg-red-50 border border-red-100 rounded-xl">
+                    <p className='text-xs font-black text-red-700 uppercase flex items-center gap-2'>
+                        <div className='w-2 h-2 bg-red-500 rounded-full' />
+                        This order has been rejected
+                    </p>
                 </div>
             )}
         </div>

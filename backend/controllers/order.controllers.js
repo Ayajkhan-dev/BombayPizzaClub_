@@ -383,6 +383,13 @@ export const updateOrderStatus = async (req, res) => {
             return res.status(400).json({ message: "shop order not found" })
         }
 
+        // Reject Order feature: sirf pending/preparing order hi reject ho sakta
+        // hai - jo already out for delivery, delivered, ya reject ho chuka hai
+        // usko reject nahi kar sakte (backend-enforced, sirf UI se nahi).
+        if (status === "rejected" && !["pending", "preparing"].includes(shopOrder.status)) {
+            return res.status(400).json({ message: "This order can no longer be rejected" })
+        }
+
         // Delivery boy assignment/broadcast system removed - owner ab directly
         // status change karta hai, koi automatic delivery boy assignment nahi hoti.
         shopOrder.status = status
